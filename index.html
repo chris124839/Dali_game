@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Dali Puzzle – Free Online Puzzle Game</title>
+<meta name="description" content="Play the Dali Puzzle game online for free. A fun visual puzzle challenge." />
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+:root{
+  --board-bg:#ffffff;
+  --point-size:20px;
+  --p1-color:#ff0000;
+  --p2-color:#00aeff;
+}
+/* Layout */
+body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial; background:#071026; color:#e6eef8; display:flex; justify-content:center; padding:16px;}
+.container{width:100%;max-width:980px;}
+.card{background:linear-gradient(180deg,#071026 0%, #091426 100%); border-radius:12px; padding:18px; box-shadow:0 12px 30px rgba(0,0,0,.6);}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.control{background:#071a2b;padding:8px;border-radius:8px;display:flex;align-items:center;gap:8px;font-size:14px;}
+#board{width:100%;max-width:660px;padding-top:100%;position:relative;background:var(--board-bg);border-radius:10px;margin:8px auto;box-shadow:inset 0 6px 24px rgba(0,0,0,.6);overflow:hidden;}
+#board-svg{position:absolute; top:0; left:0; width:100%; height:100%; stroke:#9fb0c8; stroke-width:0.9; fill:none; pointer-events:none;}
+.point{width:var(--point-size);height:var(--point-size);background:rgba(255,255,255,0.06);border:2px solid rgba(160,174,192,.9);position:absolute;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;border-radius:50%;transition:transform .18s, box-shadow .18s, background-color .18s;}
+.point.square{border-radius:6px;}
+.point.diamond{border-radius:3px; transform-origin:50% 50%;}
+.point:hover:not(.p1):not(.p2){transform:translate(-50%,-50%) scale(1.06); background:rgba(255,255,255,0.16); box-shadow:0 0 8px rgba(255,255,255,0.06);}
+.point.p1{background:var(--p1-color); border-color: #111; box-shadow:0 0 8px rgba(255,255,255,0.12);}
+.point.p2{background:var(--p2-color); border-color:#fff; box-shadow:0 0 8px rgba(0,0,0,0.4);}
+.point.selected{box-shadow:0 0 14px 4px #f6e05e; border:2px solid #f6e05e; transform:translate(-50%,-50%) scale(1.18);}
+.point.dali-formed{background:#48bb78 !important; border-color:#48bb78 !important; box-shadow:0 0 18px 6px #48bb78 !important; animation:pulse 1s infinite alternate;}
+@keyframes pulse { from {opacity:1} to {opacity:.75} }
+
+/* small pop animation applied when placing */
+@keyframes pop { 0% { transform: translate(-50%,-50%) scale(.2) } 60% { transform: translate(-50%,-50%) scale(1.12) } 100% { transform: translate(-50%,-50%) scale(1) } }
+.point.pop { animation: pop .32s ease forwards; }
+
+/* moving animation: we add a class to animate via top/left change (CSS transition) */
+.point.move-animate { transition: top .28s ease, left .28s ease, transform .18s; }
+
+/* responsive */
+.flex-row { display:flex; gap:8px; align-items:center; }
+@media (max-width:720px){
+  .controls{flex-direction:column;}
+  .flex-row{flex-direction:column; align-items:flex-start;}
+  #board{max-width:100%;}
+}
+
+/* Positioning of 24 points (same as before) */
+[data-id="0"] { top: 5%; left: 5%; }
+[data-id="1"] { top: 5%; left: 50%; }
+[data-id="2"] { top: 5%; left: 95%; }
+[data-id="3"] { top: 50%; left: 5%; }
+[data-id="4"] { top: 50%; left: 95%; }
+[data-id="5"] { top: 95%; left: 5%; }
+[data-id="6"] { top: 95%; left: 50%; }
+[data-id="7"] { top: 95%; left: 95%; }
+[data-id="8"] { top: 20%; left: 20%; }
+[data-id="9"] { top: 20%; left: 50%; }
+[data-id="10"] { top: 20%; left: 80%; }
+[data-id="11"] { top: 50%; left: 20%; }
+[data-id="12"] { top: 50%; left: 80%; }
+[data-id="13"] { top: 80%; left: 20%; }
+[data-id="14"] { top: 80%; left: 50%; }
+[data-id="15"] { top: 80%; left: 80%; }
+[data-id="16"] { top: 35%; left: 35%; }
+[data-id="17"] { top: 35%; left: 50%; }
+[data-id="18"] { top: 35%; left: 65%; }
+[data-id="19"] { top: 50%; left: 35%; }
+[data-id="20"] { top: 50%; left: 65%; }
+[data-id="21"] { top: 65%; left: 35%; }
+[data-id="22"] { top: 65%; left: 50%; }
+[data-id="23"] { top: 65%; left: 65%; }
+
+.small-muted { color:#9fb0c8; font-size:13px; }
+.header-row{display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <div class="header-row">
+      <h1 class="text-lg font-semibold">Dali Strategy — Puzzle Game</h1>
+      <div class="small-muted">Mode & AI added • Mobile friendly</div>
+    </div>
+
+    <div class="controls">
+      <div class="control">
+        <label class="small-muted">Mode</label>
+        <select id="modeSelect" class="ml-1 bg-transparent outline-none" title="Choose mode">
+          <option value="human-human">Human vs Human</option>
+          <option value="human-computer">Human vs Computer</option>
+        </select>
+      </div>
+
+      <div class="control">
+        <label class="small-muted">AI Difficulty</label>
+        <select id="aiDifficulty" class="ml-1 bg-transparent outline-none" title="AI difficulty">
+          <option value="easy">Easy</option>
+          <option value="medium" selected>Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
+
+      <div class="control">
+        <label class="small-muted">Board color</label>
+        <input id="boardColor" type="color" value="#263244" class="ml-1" />
+      </div>
+
+      <div class="control">
+        <label class="small-muted">Coin shape</label>
+        <select id="coinShape" class="ml-1 bg-transparent outline-none">
+          <option value="circle">Circle</option>
+          <option value="square">Square</option>
+          <option value="diamond">Diamond</option>
+        </select>
+      </div>
+
+      <div class="control">
+        <label class="small-muted">P1 color</label>
+        <input id="p1Color" type="color" value="#ffffff" class="ml-1" />
+      </div>
+
+      <div class="control">
+        <label class="small-muted">P2 color</label>
+        <input id="p2Color" type="color" value="#111111" class="ml-1" />
+      </div>
+
+      <div class="control">
+        <button id="restartBtn" class="px-2 py-1 bg-emerald-600 rounded text-white">Restart</button>
+      </div>
+    </div>
+
+    <h2 id="status-message" class="p-2 bg-[#082033] rounded mb-3 small-muted">Loading...</h2>
+
+    <div id="board">
+      <svg id="board-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <rect x="5" y="5" width="90" height="90" rx="3"/>
+        <rect x="20" y="20" width="60" height="60" rx="3"/>
+        <rect x="35" y="35" width="30" height="30" rx="3"/>
+        <line x1="50" y1="5" x2="50" y2="35"/>
+        <line x1="95" y1="50" x2="65" y2="50"/>
+        <line x1="50" y1="95" x2="50" y2="65"/>
+        <line x1="5" y1="50" x2="35" y2="50"/>
+      </svg>
+
+      <!-- points -->
+      <div class="point circle" data-id="0"></div>
+      <div class="point circle" data-id="1"></div>
+      <div class="point circle" data-id="2"></div>
+      <div class="point circle" data-id="3"></div>
+      <div class="point circle" data-id="4"></div>
+      <div class="point circle" data-id="5"></div>
+      <div class="point circle" data-id="6"></div>
+      <div class="point circle" data-id="7"></div>
+      <div class="point circle" data-id="8"></div>
+      <div class="point circle" data-id="9"></div>
+      <div class="point circle" data-id="10"></div>
+      <div class="point circle" data-id="11"></div>
+      <div class="point circle" data-id="12"></div>
+      <div class="point circle" data-id="13"></div>
+      <div class="point circle" data-id="14"></div>
+      <div class="point circle" data-id="15"></div>
+      <div class="point circle" data-id="16"></div>
+      <div class="point circle" data-id="17"></div>
+      <div class="point circle" data-id="18"></div>
+      <div class="point circle" data-id="19"></div>
+      <div class="point circle" data-id="20"></div>
+      <div class="point circle" data-id="21"></div>
+      <div class="point circle" data-id="22"></div>
+      <div class="point circle" data-id="23"></div>
+    </div>
+
+    <div class="flex-row mt-4 gap-4">
+      <div class="w-full bg-[#062033] p-3 rounded">
+        <div class="small-muted">Player 1 pieces on board</div>
+        <div id="p1Count" class="text-2xl font-bold">11</div>
+      </div>
+      <div class="w-full bg-[#062033] p-3 rounded">
+        <div class="small-muted">Player 2 pieces on board</div>
+        <div id="p2Count" class="text-2xl font-bold">11</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* -----------------------------
+   Board & Dalis config
+   ----------------------------- */
+const boardMap = [
+  [1,3],[0,2,9],[1,4],[0,5,11],[2,7,12],[3,6],[5,7,14],[4,6],
+  [9,11],[1,8,10,17],[9,12],[3,8,13,19],[4,10,15,20],[11,14],[6,13,15,22],[12,14],
+  [17,19],[9,16,18],[17,20],[11,16,21],[12,18,23],[19,22],[14,21,23],[20,22]
+];
+
+const dalis = [
+  [0,1,2],[5,6,7],[8,9,10],[13,14,15],[16,17,18],[21,22,23],
+  [0,3,5],[2,4,7],[8,11,13],[10,12,15],[16,19,21],[18,20,23],
+  [1,9,17],[3,11,19],[6,14,22],[4,12,20]
+];
+
+/* -----------------------------
+   UI elements
+   ----------------------------- */
+const statusText = document.getElementById('status-message');
+const points = Array.from(document.querySelectorAll('.point'));
+const p1CountEl = document.getElementById('p1Count');
+const p2CountEl = document.getElementById('p2Count');
+const boardEl = document.getElementById('board');
+
+const modeSelect = document.getElementById('modeSelect');
+const aiDifficulty = document.getElementById('aiDifficulty');
+const boardColorInput = document.getElementById('boardColor');
+const coinShape = document.getElementById('coinShape');
+const p1ColorInput = document.getElementById('p1Color');
+const p2ColorInput = document.getElementById('p2Color');
+const restartBtn = document.getElementById('restartBtn');
+
+/* -----------------------------
+   Game state
+   ----------------------------- */
+let boardState = new Array(24).fill(0); // 0 empty, 1 p1, 2 p2
+let currentPlayer = 1;
+let gamePhase = 'placing'; // 'placing','moving','removing','ask_give'
+let piecesToPlace = 22;
+let player1PieceCount = 11;
+let player2PieceCount = 11;
+let selectedPiece = null;
+let formedDali = null;
+let giveRequester = null;
+let giveGiver = null;
+
+// AI settings
+let humanPlays = {1:true, 2:true}; // default both humans
+let aiPlaysAs = null; // if ai plays as player 2 then aiPlaysAs=2
+
+/* -----------------------------
+   Sound (Web Audio API small beeps)
+   ----------------------------- */
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function beep(freq=440, duration=0.12, type='sine', gain=0.06){
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = type;
+  o.frequency.value = freq;
+  g.gain.value = gain;
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start();
+  o.stop(audioCtx.currentTime + duration);
+}
+
+/* shortcuts to sound types */
+function playSound(name){
+  // ensure resume for browsers that block autoplay
+  if (audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+  if (name==='place'){ beep(780,0.12,'sine',0.07); }
+  else if (name==='select'){ beep(520,0.08,'triangle',0.04); }
+  else if (name==='dali'){ beep(1020,0.16,'sine',0.12); beep(760,0.12,'sine',0.08); }
+  else if (name==='error'){ beep(240,0.12,'square',0.10); }
+  else if (name==='win'){ beep(1200,0.16,'sine',0.12); beep(1500,0.18,'sine',0.14); }
+}
+
+/* -----------------------------
+   Utility functions
+   ----------------------------- */
+function isAdjacent(a,b){ return boardMap[a].includes(b); }
+
+function isPieceInDali(pointId, player){
+  for (const d of dalis){
+    if (d.includes(pointId)){
+      if (boardState[d[0]]===player && boardState[d[1]]===player && boardState[d[2]]===player) return true;
+    }
+  }
+  return false;
+}
+
+function checkAllPiecesInDalis(opponent){
+  const oppPieces = boardState.map((v,i)=>v===opponent?i:-1).filter(i=>i!==-1);
+  if (oppPieces.length===0) return true;
+  for (const id of oppPieces) if (!isPieceInDali(id,opponent)) return false;
+  return true;
+}
+
+/* detect dalis after a move or placement; highlight */
+function checkDali(pointId){
+  removeDaliHighlight();
+  for (const d of dalis.filter(l => l.includes(pointId))){
+    if (boardState[d[0]]===currentPlayer && boardState[d[1]]===currentPlayer && boardState[d[2]]===currentPlayer){
+      formedDali = d.slice();
+      highlightDali();
+      return true;
+    }
+  }
+  formedDali = null;
+  return false;
+}
+function highlightDali(){
+  if (!formedDali) return;
+  formedDali.forEach(id=>points[id]?.classList.add('dali-formed'));
+  playSound('dali');
+}
+function removeDaliHighlight(){
+  if (!formedDali) return;
+  formedDali.forEach(id=>points[id]?.classList.remove('dali-formed'));
+  formedDali = null;
+}
+
+/* place piece visually with pop */
+function placePiece(id){
+  boardState[id] = currentPlayer;
+  piecesToPlace--;
+  const pt = points[id];
+  pt.classList.add(currentPlayer===1?'p1':'p2');
+  pt.classList.remove('selected');
+  // pop animation
+  pt.classList.remove('pop');
+  void pt.offsetWidth;
+  pt.classList.add('pop');
+  playSound('place');
+}
+
+/* remove piece */
+function removePiece(id){
+  const owner = boardState[id];
+  boardState[id]=0;
+  if (owner===1) player1PieceCount--;
+  else if (owner===2) player2PieceCount--;
+  const pt = points[id];
+  pt.classList.remove('p1','p2','selected','dali-formed');
+}
+
+/* switch player */
+function switchPlayer(){ currentPlayer = (currentPlayer===1?2:1); }
+
+/* check blocked (no legal moves) */
+function checkBlocked(){
+  const player=currentPlayer;
+  const playerPieces = boardState.map((v,i)=>v===player?i:-1).filter(i=>i!==-1);
+  if (playerPieces.length<=2) return false;
+  for (const piece of playerPieces){
+    for (const n of boardMap[piece]) if (boardState[n]===0) return false;
+  }
+  const winner = (player===1?2:1);
+  endGame(winner,'blocked');
+  return true;
+}
+
+/* win check */
+function checkWin(){
+  const opponentCount = (currentPlayer===1?player2PieceCount:player1PieceCount);
+  if (opponentCount<=2){ endGame(currentPlayer,'elimination'); return true; }
+  return false;
+}
+
+function endGame(winner, reason){
+  let msg = `Game Over! Player ${winner} wins by `;
+  msg += (reason==='elimination') ? 'reducing the opponent to 2 pieces.' : 'blocking all of the opponent\'s moves.';
+  statusText.textContent = msg;
+  playSound('win');
+  points.forEach(pt=>pt.removeEventListener('click', handlePointClick));
+}
+
+/* -----------------------------
+   Phase Handlers
+   ----------------------------- */
+function handlePointClick(e){
+  if (!e.target) return;
+  if (restartBtn.disabled===true) return;
+  const id = parseInt(e.target.dataset.id,10);
+
+  if (gamePhase==='ask_give'){
+    if (boardState[id] === giveGiver && giveGiver!==null){
+      removePiece(id);
+      removeDaliHighlight();
+      if (checkWin()) return;
+      gamePhase = (piecesToPlace===0)?'moving':'placing';
+      switchPlayer();
+      updateUI();
+      // If next is AI, schedule AI
+      maybeTriggerAI();
+      return;
+    } else {
+      statusText.textContent = `Player ${giveGiver}: Choose one of your pieces to GIVE.`;
+      playSound('error');
+      return;
+    }
+  }
+
+  if (gamePhase==='placing'){
+    if (boardState[id]!==0){ statusText.textContent = `Player ${currentPlayer}: Spot taken.`; playSound('error'); return; }
+    placePiece(id);
+    if (checkDali(id)){ gamePhase='removing'; updateUI(); maybeTriggerAI(); return; }
+    switchPlayer();
+    if (piecesToPlace===0) gamePhase='moving';
+    updateUI();
+    maybeTriggerAI();
+    return;
+  }
+
+  if (gamePhase==='moving'){
+    const ptEl = points[id];
+    if (selectedPiece===null){
+      if (boardState[id]===currentPlayer){
+        selectedPiece = id; ptEl.classList.add('selected'); statusText.textContent = `Player ${currentPlayer}: Select adjacent empty spot.`; playSound('select');
+      } else { statusText.textContent = `Player ${currentPlayer}: select your piece first.`; playSound('error'); }
+      return;
+    } else {
+      if (id===selectedPiece){
+        points[selectedPiece].classList.remove('selected'); selectedPiece=null; updateUI(); return;
+      }
+      if (boardState[id]===0 && isAdjacent(selectedPiece, id)){
+        // move visually: remove classes from old, add to new; use move-animate for smooth transition
+        boardState[id] = currentPlayer; boardState[selectedPiece]=0;
+        const old = points[selectedPiece];
+        old.classList.remove('p1','p2','selected');
+        points[id].classList.add(currentPlayer===1?'p1':'p2');
+        // animate by toggling class (CSS handles top/left transitions)
+        points[id].classList.add('move-animate');
+        points[selectedPiece].classList.add('move-animate');
+        // play
+        playSound('place');
+        selectedPiece=null;
+        if (checkDali(id)){ gamePhase='removing'; updateUI(); maybeTriggerAI(); return; }
+        removeDaliHighlight();
+        switchPlayer();
+        if (checkBlocked()) return;
+        updateUI();
+        maybeTriggerAI();
+        return;
+      } else {
+        statusText.textContent = `Player ${currentPlayer}: Invalid move. Choose adjacent empty spot.`; playSound('error'); return;
+      }
+    }
+  }
+
+  if (gamePhase==='removing'){
+    const opponent = currentPlayer===1?2:1;
+    if (boardState[id]!==opponent){ statusText.textContent=`Player ${currentPlayer}: Remove an opponent piece.`; playSound('error'); return; }
+    const isD = isPieceInDali(id,opponent);
+    const allIn = checkAllPiecesInDalis(opponent);
+    if (isD && !allIn){ statusText.textContent=`Cannot remove piece in a Dali.`; playSound('error'); return; }
+    if (allIn){
+      // ask opponent to give
+      giveRequester = currentPlayer; giveGiver = opponent; gamePhase='ask_give';
+      statusText.textContent = `All Player ${opponent}'s pieces are in Dalis. Player ${opponent}: You must GIVE one piece (click it).`;
+      playSound('error');
+      // if opponent is AI, trigger AI to choose which piece to give
+      if (!humanPlays[giveGiver]) setTimeout(()=>aiGivePiece(giveGiver),650);
+      return;
+    }
+    // normal removal
+    removePiece(id); removeDaliHighlight(); playSound('select');
+    if (checkWin()) return;
+    gamePhase = (piecesToPlace===0)?'moving':'placing';
+    switchPlayer();
+    updateUI();
+    maybeTriggerAI();
+  }
+}
+
+/* -----------------------------
+   AI routines
+   ----------------------------- */
+
+/* Utility: find all empty spots */
+function emptySpots(){ return boardState.map((v,i)=>v===0?i:-1).filter(i=>i!==-1); }
+
+/* Utility: find opponent immediate Dali opportunity if they place at spot s */
+function wouldCreateDaliIfPlaced(player, spot){
+  const orig = boardState[spot];
+  boardState[spot] = player;
+  let formed=false;
+  for (const d of dalis.filter(l=>l.includes(spot))){
+    if (boardState[d[0]]===player && boardState[d[1]]===player && boardState[d[2]]===player) { formed=true; break; }
+  }
+  boardState[spot] = orig;
+  return formed;
+}
+
+/* AI: choose placement (based on difficulty) */
+function aiChoosePlacement(player, difficulty){
+  const opponent = player===1?2:1;
+  const empties = emptySpots();
+  if (empties.length===0) return null;
+  if (difficulty==='easy'){
+    return empties[Math.floor(Math.random()*empties.length)];
+  }
+  // medium or hard: try winning move first
+  for (const s of empties){
+    if (wouldCreateDaliIfPlaced(player,s)) return s;
+  }
+  // block opponent's immediate Dali
+  for (const s of empties){
+    if (wouldCreateDaliIfPlaced(opponent,s)) return s;
+  }
+  // prefer center-ish positions (heuristic)
+  const prefer = [17,9,14,1,22,6,12,4,20,19,11,3,16,8,10,2,0,5,7,13,15,18,21,23];
+  for (const p of prefer) if (empties.includes(p)) return p;
+  // fallback random
+  return empties[Math.floor(Math.random()*empties.length)];
+}
+
+/* AI: choose move during moving phase */
+function aiChooseMove(player, difficulty){
+  const opponent = player===1?2:1;
+  // collect all possible moves [from,to]
+  const moves=[];
+  boardState.forEach((v,i)=>{
+    if (v===player){
+      for (const n of boardMap[i]) if (boardState[n]===0) moves.push([i,n]);
+    }
+  });
+  if (moves.length===0) return null;
+  if (difficulty==='easy') return moves[Math.floor(Math.random()*moves.length)];
+  // medium/hard: try immediate Dali
+  for (const m of moves){
+    const [f,t]=m;
+    boardState[f]=0; boardState[t]=player;
+    const made = dalis.some(d=>d.includes(t) && boardState[d[0]]===player && boardState[d[1]]===player && boardState[d[2]]===player);
+    boardState[f]=player; boardState[t]=0;
+    if (made) return m;
+  }
+  // block opponent immediate Dali (if they can move to create)
+  for (const m of moves){
+    const [f,t]=m;
+    boardState[f]=0; boardState[t]=player;
+    // simulate opponent moves: if opponent has immediate winning move after this, avoid it
+    const oppCanWin = (()=> {
+      for (let p=0;p<24;p++){
+        if (boardState[p]===0){
+          boardState[p]=opponent;
+          const win = dalis.some(d=>d.includes(p) && boardState[d[0]]===opponent && boardState[d[1]]===opponent && boardState[d[2]]===opponent);
+          boardState[p]=0;
+          if (win) return true;
+        }
+      }
+      return false;
+    })();
+    boardState[f]=player; boardState[t]=0;
+    if (!oppCanWin) return m;
+  }
+  // Hard-level extra: pick moves that reduce opponent legal moves
+  if (difficulty==='hard'){
+    let best = null; let bestScore = Infinity;
+    for (const m of moves){
+      const [f,t]=m;
+      boardState[f]=0; boardState[t]=player;
+      // count opponent available moves
+      let oppMoves=0;
+      boardState.forEach((v,i)=>{ if (v===opponent) for (const n of boardMap[i]) if (boardState[n]===0) oppMoves++; });
+      boardState[f]=player; boardState[t]=0;
+      if (oppMoves < bestScore){ bestScore=oppMoves; best=m; }
+    }
+    if (best) return best;
+  }
+  // fallback: random
+  return moves[Math.floor(Math.random()*moves.length)];
+}
+
+/* AI: trigger decisions */
+function aiMakePlacement(player){
+  const diff = aiDifficulty.value;
+  const s = aiChoosePlacement(player, diff);
+  if (s===null) return;
+  // small delay to look natural
+  setTimeout(()=>{
+    placePiece(s);
+    if (checkDali(s)){ gamePhase='removing'; updateUI(); maybeTriggerAI(); return; }
+    switchPlayer();
+    if (piecesToPlace===0) gamePhase='moving';
+    updateUI();
+    maybeTriggerAI();
+  }, 450 + Math.random()*400);
+}
+
+function aiMakeMove(player){
+  const diff = aiDifficulty.value;
+  const m = aiChooseMove(player, diff);
+  if (!m) { // no move -> blocked
+    checkBlocked(); return;
+  }
+  const [f,t] = m;
+  // perform move after delay
+  setTimeout(()=>{
+    boardState[f]=0; boardState[t]=player;
+    points[f].classList.remove('p1','p2','selected');
+    points[t].classList.add(player===1?'p1':'p2');
+    playSound('place');
+    if (checkDali(t)){ gamePhase='removing'; updateUI(); maybeTriggerAI(); return; }
+    removeDaliHighlight();
+    switchPlayer();
+    if (checkBlocked()) return;
+    updateUI();
+    maybeTriggerAI();
+  }, 420 + Math.random()*380);
+}
+
+/* AI: when asked to GIVE a piece (all in dalis) - AI will surrender a least-important piece */
+function aiGivePiece(aiPlayer){
+  // choose a piece that is not part of multiple dalis or the least strategic
+  const ownPieces = boardState.map((v,i)=>v===aiPlayer?i:-1).filter(i=>i!==-1);
+  if (ownPieces.length===0) return;
+  // prefer a piece that is in a dali but minimal connections, or else random
+  let candidate = null;
+  for (const id of ownPieces){
+    // count how many dalis include it
+    const count = dalis.reduce((acc,d)=> d.includes(id) && d.every(p=>boardState[p]===aiPlayer) ? acc+1 : acc ,0);
+    if (count===0){ candidate=id; break; }
+  }
+  if (candidate===null) candidate = ownPieces[Math.floor(Math.random()*ownPieces.length)];
+  // remove after delay
+  setTimeout(()=> {
+    removePiece(candidate);
+    removeDaliHighlight();
+    if (checkWin()) return;
+    gamePhase = (piecesToPlace===0)?'moving':'placing';
+    switchPlayer();
+    updateUI();
+    maybeTriggerAI();
+  }, 600);
+}
+
+/* Trigger AI if it's AI's turn & game not over */
+function maybeTriggerAI(){
+  // identify which player is AI
+  if (modeSelect.value === 'human-computer'){
+    // by convention, human is player 1, AI is player 2. (You may change later)
+    humanPlays = {1:true,2:false};
+    aiPlaysAs = 2;
+  } else {
+    humanPlays = {1:true,2:true};
+    aiPlaysAs = null;
+  }
+  if (!humanPlays[currentPlayer]){
+    // small pause to make it natural
+    if (gamePhase==='placing') aiMakePlacement(currentPlayer);
+    else if (gamePhase==='moving') aiMakeMove(currentPlayer);
+    else if (gamePhase==='removing'){
+      // AI must choose an opponent piece to remove (respect dali rules)
+      const opponent = currentPlayer===1?2:1;
+      // find non-dali opponent piece to remove
+      const oppPieces = boardState.map((v,i)=>v===opponent?i:-1).filter(i=>i!==-1);
+      const nonDali = oppPieces.filter(id=>!isPieceInDali(id,opponent));
+      if (nonDali.length>0){
+        setTimeout(()=>{ removePiece(nonDali[Math.floor(Math.random()*nonDali.length)]); removeDaliHighlight(); if (checkWin()) return; gamePhase=(piecesToPlace===0)?'moving':'placing'; switchPlayer(); updateUI(); maybeTriggerAI(); }, 500);
+      } else {
+        // all in dalis -> ask to give (opponent is AI? if opponent is human then they must give)
+        const allIn = checkAllPiecesInDalis(opponent);
+        if (allIn){
+          // ask opponent to give; if opponent is AI, auto-give
+          giveRequester = currentPlayer; giveGiver = opponent; gamePhase='ask_give';
+          statusText.textContent = `All Player ${opponent}'s pieces are in Dalis. Player ${opponent}: You must GIVE one piece (click it).`;
+          if (!humanPlays[giveGiver]) aiGivePiece(giveGiver);
+        } else {
+          // otherwise, AI will try to remove an available piece (non dali)
+          setTimeout(()=> {
+            const candidates = nonDali;
+            removePiece(candidates[Math.floor(Math.random()*candidates.length)]);
+            removeDaliHighlight();
+            if (checkWin()) return;
+            gamePhase=(piecesToPlace===0)?'moving':'placing'; switchPlayer(); updateUI(); maybeTriggerAI();
+          }, 450);
+        }
+      }
+    } else if (gamePhase==='ask_give'){
+      // if AI must give, handled by aiGivePiece above
+      if (!humanPlays[giveGiver]) aiGivePiece(giveGiver);
+    }
+  }
+}
+
+/* -----------------------------
+   UI updates & init
+   ----------------------------- */
+function updateUI(){
+  p1CountEl.textContent = player1PieceCount;
+  p2CountEl.textContent = player2PieceCount;
+
+  // status message
+  if (gamePhase==='placing'){
+    statusText.textContent = `Player ${currentPlayer}: Place a piece (${piecesToPlace} left).`;
+  } else if (gamePhase==='moving'){
+    statusText.textContent = `Player ${currentPlayer}: Move a piece.`;
+  } else if (gamePhase==='removing'){
+    statusText.textContent = `Dali! Player ${currentPlayer}: Remove one opponent piece.`;
+  } else if (gamePhase==='ask_give'){
+    statusText.textContent = `Player ${giveGiver}: You must give one of your pieces now.`;
+  }
+
+  // colors & shapes
+  document.documentElement.style.setProperty('--board-bg', boardColorInput.value);
+  document.documentElement.style.setProperty('--p1-color', p1ColorInput.value);
+  document.documentElement.style.setProperty('--p2-color', p2ColorInput.value);
+
+  const shape = coinShape.value;
+  points.forEach(pt=>{
+    pt.classList.remove('circle','square','diamond');
+    pt.classList.add(shape);
+    // adjust rotation for diamond
+    if (shape==='diamond'){
+      // if selected, keep scale and rotate
+      if (pt.classList.contains('selected')) pt.style.transform = 'translate(-50%,-50%) scale(1.18) rotate(45deg)';
+      else pt.style.transform = 'translate(-50%,-50%) rotate(45deg)';
+    } else {
+      // remove rotation; transform for selected handled by CSS
+      pt.style.transform = pt.classList.contains('selected') ? 'translate(-50%,-50%) scale(1.18)' : 'translate(-50%,-50%)';
+    }
+    // set colors for existing pieces
+    if (pt.classList.contains('p1')) pt.style.backgroundColor = p1ColorInput.value;
+    else if (pt.classList.contains('p2')) pt.style.backgroundColor = p2ColorInput.value;
+    else pt.style.backgroundColor = 'rgba(255,255,255,0.06)';
+  });
+
+  // disable restart while playing? keep enabled always
+}
+
+/* restart */
+function restartGame(){
+  // clear visuals
+  points.forEach(pt => pt.classList.remove('p1','p2','selected','dali-formed','pop'));
+  // reset state
+  boardState = new Array(24).fill(0);
+  currentPlayer=1; gamePhase='placing'; piecesToPlace=22;
+  player1PieceCount=11; player2PieceCount=11; selectedPiece=null; formedDali=null;
+  giveRequester = null; giveGiver=null;
+  // reattach listeners
+  points.forEach(pt=>{
+    pt.removeEventListener('click', handlePointClick);
+    pt.addEventListener('click', handlePointClick);
+  });
+  updateUI();
+}
+
+/* Wire UI controls */
+points.forEach(pt=>pt.addEventListener('click', handlePointClick));
+restartBtn.addEventListener('click', ()=>{ restartGame(); playSound('select'); });
+
+// inputs change
+boardColorInput.addEventListener('input', updateUI);
+coinShape.addEventListener('change', updateUI);
+p1ColorInput.addEventListener('input', updateUI);
+p2ColorInput.addEventListener('input', updateUI);
+
+// mode select: if human-computer, set human plays accordingly (human is player 1)
+modeSelect.addEventListener('change', ()=>{
+  if (modeSelect.value === 'human-computer'){ humanPlays={1:true,2:false}; aiPlaysAs=2; }
+  else { humanPlays={1:true,2:true}; aiPlaysAs=null; }
+  // immediately trigger AI if it's AI's turn at start
+  maybeTriggerAI();
+});
+
+// difficulty change only effects AI on next action; fine
+aiDifficulty.addEventListener('change', ()=>{ /* nothing special */ });
+
+/* initialize */
+(function init(){
+  restartGame();
+  updateUI();
+  statusText.textContent = 'Player 1: Place a piece to start.';
+})();
+</script>
+</body>
+</html>
