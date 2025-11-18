@@ -8,45 +8,118 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
 :root{
-  --board-bg:#ffffff;
+  --board-bg:#ffffff;      /* default white board background */
   --point-size:20px;
-  --p1-color:#ff0000;
-  --p2-color:#00aeff;
+  --p1-color:#ff0000;      /* default player 1 color */
+  --p2-color:#00aeff;      /* default player 2 color */
+  --control-bg:#071a2b;
+  --muted:#9fb0c8;
+  --coin-border: rgba(0,0,0,0.85);
+  --last-pulse: rgba(40,140,255,0.85); /* blue pulse color */
 }
-/* Layout */
-body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial; background:#071026; color:#e6eef8; display:flex; justify-content:center; padding:16px;}
-.container{width:100%;max-width:980px;}
-.card{background:linear-gradient(180deg,#071026 0%, #091426 100%); border-radius:12px; padding:18px; box-shadow:0 12px 30px rgba(0,0,0,.6);}
-.controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
-.control{background:#071a2b;padding:8px;border-radius:8px;display:flex;align-items:center;gap:8px;font-size:14px;}
-#board{width:100%;max-width:660px;padding-top:100%;position:relative;background:var(--board-bg);border-radius:1px;margin:8px auto;box-shadow:inset 0 6px 24px rgba(0,0,0,.6);overflow:hidden;}
-#board-svg{position:absolute; top:0; left:0; width:100%; height:100%; stroke:#9fb0c8; stroke-width:0.9; fill:none; pointer-events:none;}
-.point{width:var(--point-size);height:var(--point-size);background:rgba(255,255,255,0.06);border:2px solid rgba(160,174,192,.9);position:absolute;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;border-radius:50%;transition:transform .18s, box-shadow .18s, background-color .18s;}
-.point.square{border-radius:6px;}
-.point.diamond{border-radius:3px; transform-origin:50% 50%;}
-.point:hover:not(.p1):not(.p2){transform:translate(-50%,-50%) scale(1.06); background:rgba(255,255,255,0.16); box-shadow:0 0 8px rgba(255,255,255,0.06);}
-.point.p1{background:var(--p1-color); border-color: #111; box-shadow:0 0 8px rgba(255,255,255,0.12);}
-.point.p2{background:var(--p2-color); border-color:#fff; box-shadow:0 0 8px rgba(0,0,0,0.4);}
-.point.selected{box-shadow:0 0 14px 4px #f6e05e; border:2px solid #f6e05e; transform:translate(-50%,-50%) scale(1.18);}
-.point.dali-formed{background:#48bb78 !important; border-color:#48bb78 !important; box-shadow:0 0 18px 6px #48bb78 !important; animation:pulse 1s infinite alternate;}
-@keyframes pulse { from {opacity:1} to {opacity:.75} }
 
-/* small pop animation applied when placing */
+/* Page layout */
+body{
+  font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
+  background:#071026;
+  color:#e6eef8;
+  display:flex;
+  justify-content:center;
+  padding:16px;
+  margin:0;
+  min-height:100vh;
+}
+.container{width:100%;max-width:980px;}
+.card{
+  background:linear-gradient(180deg,#071026 0%, #091426 100%);
+  border-radius:12px;
+  padding:18px;
+  box-shadow:0 12px 30px rgba(0,0,0,.6);
+}
+
+/* header */
+.header-row{display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;}
+.small-muted{ color:var(--muted); font-size:13px; }
+
+/* Controls area */
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.control{background:var(--control-bg);padding:8px;border-radius:8px;display:flex;align-items:center;gap:8px;font-size:14px;}
+.control label{color:var(--muted); font-size:13px;}
+
+/* Compact mobile options toggler */
+#optionsToggle { display:none; background:transparent; border:none; color:var(--muted); font-size:15px; padding:8px; border-radius:8px; }
+@media (max-width:720px){
+  .controls { display:none; /* hidden by default on mobile - toggled by button */ }
+  #optionsToggle { display:inline-flex; align-items:center; gap:8px; }
+}
+
+/* BOARD */
+#board{
+  width:100%;
+  max-width:660px;
+  padding-top:100%;
+  position:relative;
+  background:var(--board-bg);
+  border-radius:0px; /* sharp board container corners */
+  margin:8px auto;
+  box-shadow:inset 0 6px 24px rgba(0,0,0,.6);
+  overflow:hidden;
+}
+
+/* SVG board lines - sharp corners (rx=0 on rects) */
+#board-svg{position:absolute; top:0; left:0; width:100%; height:100%; stroke:#9fb0c8; stroke-width:0.9; fill:none; pointer-events:none;}
+
+/* POINTS (coins) */
+.point{
+  width:var(--point-size);
+  height:var(--point-size);
+  background:rgba(255,255,255,0.06);
+  border:2px solid var(--coin-border);
+  position:absolute;
+  transform:translate(-50%,-50%);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:50%;
+  transition:transform .18s, box-shadow .18s, background-color .18s, top .25s, left .25s;
+  cursor:pointer;
+  user-select:none;
+}
+.point.square{ border-radius:4px; }   /* slightly rounded squares */
+.point.hex { clip-path: polygon(25% 6.7%, 75% 6.7%, 100% 50%, 75% 93.3%, 25% 93.3%, 0% 50%); border-radius:0; }
+.point.diamond{ border-radius:3px; transform-origin:50% 50%; }
+
+/* hover / default styles */
+.point:hover:not(.p1):not(.p2) { transform: translate(-50%,-50%) scale(1.08); background: rgba(255,255,255,0.16); box-shadow:0 0 8px rgba(255,255,255,0.06); }
+
+.point.p1 { background:var(--p1-color); border-color:var(--coin-border); box-shadow:0 0 8px rgba(255,255,255,0.12); }
+.point.p2 { background:var(--p2-color); border-color:var(--coin-border); box-shadow:0 0 8px rgba(0,0,0,0.4); }
+
+.point.selected{ box-shadow:0 0 14px 4px #f6e05e; border:2px solid #f6e05e; transform:translate(-50%,-50%) scale(1.18); }
+.point.dali-formed{ background:#48bb78 !important; border-color:#48bb78 !important; box-shadow:0 0 18px 6px #48bb78 !important; animation:pulse 1s infinite alternate; }
+
+@keyframes pulse { from{opacity:1} to{opacity:.75} }
+
+/* placement animation */
 @keyframes pop { 0% { transform: translate(-50%,-50%) scale(.2) } 60% { transform: translate(-50%,-50%) scale(1.12) } 100% { transform: translate(-50%,-50%) scale(1) } }
 .point.pop { animation: pop .32s ease forwards; }
 
-/* moving animation: we add a class to animate via top/left change (CSS transition) */
-.point.move-animate { transition: top .28s ease, left .28s ease, transform .18s; }
+/* last move pulse (Option B) — blue pulse */
+@keyframes lastMovePulse {
+  0% { transform: translate(-50%,-50%) scale(1); box-shadow: 0 0 0 0 rgba(40,140,255,0.9); }
+  40% { transform: translate(-50%,-50%) scale(1.18); box-shadow: 0 0 18px 8px rgba(40,140,255,0.35); }
+  100% { transform: translate(-50%,-50%) scale(1); box-shadow: 0 0 0 0 rgba(40,140,255,0); }
+}
+.point.last-move { animation: lastMovePulse 0.8s ease forwards; }
 
-/* responsive */
+/* Responsive tweaks */
 .flex-row { display:flex; gap:8px; align-items:center; }
 @media (max-width:720px){
-  .controls{flex-direction:column;}
   .flex-row{flex-direction:column; align-items:flex-start;}
   #board{max-width:100%;}
 }
 
-/* Positioning of 24 points (same as before) */
+/* Positioning of the 24 points */
 [data-id="0"] { top: 5%; left: 5%; }
 [data-id="1"] { top: 5%; left: 50%; }
 [data-id="2"] { top: 5%; left: 95%; }
@@ -72,21 +145,61 @@ body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",
 [data-id="22"] { top: 65%; left: 50%; }
 [data-id="23"] { top: 65%; left: 65%; }
 
-.small-muted { color:#9fb0c8; font-size:13px; }
-.header-row{display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;}
+/* Winner banner overlay */
+#winnerBanner {
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  background:linear-gradient(90deg, rgba(2,6,23,0.98), rgba(3,15,40,0.98));
+  color:white;
+  padding:20px;
+  border-radius:12px;
+  box-shadow:0 12px 30px rgba(0,0,0,0.6);
+  display:none;
+  z-index:40;
+  width:90%;
+  max-width:520px;
+  text-align:center;
+}
+#winnerBanner h2 { font-size:20px; margin:0 0 10px 0; }
+#winnerBanner button { padding:10px 14px; border-radius:8px; border:0; cursor:pointer; font-weight:600; }
+
+/* small utility */
+.theme-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.theme-btn { padding:6px 8px; border-radius:8px; border:1px solid rgba(255,255,255,0.06); cursor:pointer; font-size:13px; background:transparent; color:var(--muted); }
+.theme-btn.active { box-shadow:0 6px 18px rgba(0,0,0,0.4); border-color:rgba(255,255,255,0.12); color:white; }
+.option-group { display:flex; gap:8px; align-items:center; }
+
+/* download preview button style (small inside controls if needed) */
+#downloadPreview { padding:6px 10px; background:#2563eb; color:white; border-radius:8px; border:0; cursor:pointer; font-weight:600; }
+
+/* small notes */
+.note-small{ font-size:12px; color:var(--muted); margin-top:6px; }
+
 </style>
 </head>
 <body>
 <div class="container">
   <div class="card">
+
     <div class="header-row">
-      <h1 class="text-lg font-semibold">Dali Strategy — Puzzle Game</h1>
-      <div class="small-muted">Mode & AI added • Mobile friendly</div>
+      <div>
+        <h1 class="text-lg font-semibold" style="margin:0;">Dali Strategy — Puzzle Game</h1>
+        <div class="small-muted">Play vs human or AI • Choose theme & difficulty</div>
+      </div>
+
+      <!-- Mobile options toggle (hidden on desktop) -->
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button id="optionsToggle">Options ▾</button>
+      </div>
     </div>
 
-    <div class="controls">
+    <!-- CONTROLS -->
+    <div class="controls" id="controlsPanel">
+
       <div class="control">
-        <label class="small-muted">Mode</label>
+        <label>Mode</label>
         <select id="modeSelect" class="ml-1 bg-transparent outline-none" title="Choose mode">
           <option value="human-human">Human vs Human</option>
           <option value="human-computer">Human vs Computer</option>
@@ -94,57 +207,87 @@ body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",
       </div>
 
       <div class="control">
-        <label class="small-muted">AI Difficulty</label>
-        <select id="aiDifficulty" class="ml-1 bg-transparent outline-none" title="AI difficulty">
+        <label>Difficulty</label>
+        <select id="difficultySelect" class="ml-1 bg-transparent outline-none" title="AI difficulty">
           <option value="easy">Easy</option>
           <option value="medium" selected>Medium</option>
           <option value="hard">Hard</option>
         </select>
       </div>
 
-      <div class="control">
-        <label class="small-muted">Board color</label>
-        <input id="boardColor" type="color" value="#263244" class="ml-1" />
+      <div class="control" style="flex-direction:column;min-width:140px;">
+        <label>Board color</label>
+        <div class="theme-row" style="margin-top:6px;">
+          <button id="boardWhite" class="theme-btn board-theme active" data-color="#ffffff">White</button>
+          <button class="theme-btn board-theme" data-color="#f7ecd0">Wood</button>
+          <button class="theme-btn board-theme" data-color="#263244">Dark</button>
+          <button class="theme-btn board-theme" data-color="#e6f2ff">Blue</button>
+        </div>
       </div>
 
-      <div class="control">
-        <label class="small-muted">Coin shape</label>
-        <select id="coinShape" class="ml-1 bg-transparent outline-none">
-          <option value="circle">Circle</option>
+      <div class="control" style="flex-direction:column;min-width:160px;">
+        <label>Player colors (presets)</label>
+        <div class="theme-row" style="margin-top:6px;">
+          <button class="theme-btn player-theme active" data-p1="#ff0000" data-p2="#00aeff">Red / Blue</button>
+          <button class="theme-btn player-theme" data-p1="#00c853" data-p2="#ff9100">Green / Orange</button>
+          <button class="theme-btn player-theme" data-p1="#ff4d4d" data-p2="#222222">Red / Black</button>
+          <button class="theme-btn player-theme" data-p1="#7c4dff" data-p2="#ffd600">Purple / Yellow</button>
+        </div>
+        <div class="note-small">Or choose custom colors below</div>
+      </div>
+
+      <div class="control" style="flex-direction:column;min-width:150px;">
+        <label>Custom player colors</label>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:6px;">
+          <input id="p1Color" type="color" value="#ff0000" title="Player 1 color" />
+          <input id="p2Color" type="color" value="#00aeff" title="Player 2 color" />
+        </div>
+      </div>
+
+      <div class="control" style="flex-direction:column;min-width:140px;">
+        <label>Coin shape</label>
+        <select id="coinShape" class="ml-1 bg-transparent outline-none" style="margin-top:6px;">
+          <option value="circle" selected>Circle</option>
           <option value="square">Square</option>
+          <option value="hex">Hexagon</option>
           <option value="diamond">Diamond</option>
         </select>
       </div>
 
-      <div class="control">
-        <label class="small-muted">P1 color</label>
-        <input id="p1Color" type="color" value="#ffffff" class="ml-1" />
+      <div class="control" style="display:flex;align-items:center;gap:8px;">
+        <!-- New Game button (replaces old restart) -->
+        <button id="newGameBtn" class="px-3 py-2 bg-emerald-600 rounded text-white font-semibold">New Game</button>
+        <button id="downloadPreview" title="Download preview.png">Download Preview (PNG)</button>
       </div>
 
-      <div class="control">
-        <label class="small-muted">P2 color</label>
-        <input id="p2Color" type="color" value="#111111" class="ml-1" />
-      </div>
+    </div> <!-- controls -->
 
-      <div class="control">
-        <button id="restartBtn" class="px-2 py-1 bg-emerald-600 rounded text-white">Restart</button>
-      </div>
-    </div>
-
+    <!-- STATUS -->
     <h2 id="status-message" class="p-2 bg-[#082033] rounded mb-3 small-muted">Loading...</h2>
 
-    <div id="board">
-      <svg id="board-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
-        <rect x="5" y="5" width="90" height="90" rx="3"/>
-        <rect x="20" y="20" width="60" height="60" rx="3"/>
-        <rect x="35" y="35" width="30" height="30" rx="3"/>
+    <!-- BOARD -->
+    <div id="board" aria-hidden="false">
+      <svg id="board-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <!-- sharp corners: rx="0" -->
+        <rect x="5" y="5" width="90" height="90" rx="0"/>
+        <rect x="20" y="20" width="60" height="60" rx="0"/>
+        <rect x="35" y="35" width="30" height="30" rx="0"/>
         <line x1="50" y1="5" x2="50" y2="35"/>
         <line x1="95" y1="50" x2="65" y2="50"/>
         <line x1="50" y1="95" x2="50" y2="65"/>
         <line x1="5" y1="50" x2="35" y2="50"/>
       </svg>
 
-      <!-- points -->
+      <!-- overlay winner banner (hidden until win) -->
+      <div id="winnerBanner" role="dialog" aria-live="assertive">
+        <h2 id="winnerText">Player X Wins!</h2>
+        <div style="margin-top:8px;">
+          <button id="bannerNewGame" style="background:#10b981;color:white;">New Game</button>
+          <button id="bannerClose" style="margin-left:10px;background:transparent;border:1px solid rgba(255,255,255,0.08);color:white;">Close</button>
+        </div>
+      </div>
+
+      <!-- 24 points -->
       <div class="point circle" data-id="0"></div>
       <div class="point circle" data-id="1"></div>
       <div class="point circle" data-id="2"></div>
@@ -169,7 +312,8 @@ body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",
       <div class="point circle" data-id="21"></div>
       <div class="point circle" data-id="22"></div>
       <div class="point circle" data-id="23"></div>
-    </div>
+
+    </div> <!-- board -->
 
     <div class="flex-row mt-4 gap-4">
       <div class="w-full bg-[#062033] p-3 rounded">
@@ -181,13 +325,14 @@ body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",
         <div id="p2Count" class="text-2xl font-bold">11</div>
       </div>
     </div>
-  </div>
-</div>
+
+  </div> <!-- card -->
+</div> <!-- container -->
 
 <script>
-/* -----------------------------
+/* =========================
    Board & Dalis config
-   ----------------------------- */
+   ========================= */
 const boardMap = [
   [1,3],[0,2,9],[1,4],[0,5,11],[2,7,12],[3,6],[5,7,14],[4,6],
   [9,11],[1,8,10,17],[9,12],[3,8,13,19],[4,10,15,20],[11,14],[6,13,15,22],[12,14],
@@ -200,9 +345,9 @@ const dalis = [
   [1,9,17],[3,11,19],[6,14,22],[4,12,20]
 ];
 
-/* -----------------------------
-   UI elements
-   ----------------------------- */
+/* =========================
+   DOM references
+   ========================= */
 const statusText = document.getElementById('status-message');
 const points = Array.from(document.querySelectorAll('.point'));
 const p1CountEl = document.getElementById('p1Count');
@@ -210,16 +355,28 @@ const p2CountEl = document.getElementById('p2Count');
 const boardEl = document.getElementById('board');
 
 const modeSelect = document.getElementById('modeSelect');
-const aiDifficulty = document.getElementById('aiDifficulty');
-const boardColorInput = document.getElementById('boardColor');
-const coinShape = document.getElementById('coinShape');
+const difficultySelect = document.getElementById('difficultySelect');
+const controlsPanel = document.getElementById('controlsPanel');
+const optionsToggle = document.getElementById('optionsToggle');
+
+const newGameBtn = document.getElementById('newGameBtn');
+const bannerNewGame = document.getElementById('bannerNewGame');
+const bannerClose = document.getElementById('bannerClose');
+const winnerBanner = document.getElementById('winnerBanner');
+const winnerText = document.getElementById('winnerText');
+
+const downloadPreviewBtn = document.getElementById('downloadPreview');
+
+/* Theme controls */
+const boardThemeBtns = Array.from(document.querySelectorAll('.board-theme'));
+const playerThemeBtns = Array.from(document.querySelectorAll('.player-theme'));
 const p1ColorInput = document.getElementById('p1Color');
 const p2ColorInput = document.getElementById('p2Color');
-const restartBtn = document.getElementById('restartBtn');
+const coinShapeEl = document.getElementById('coinShape');
 
-/* -----------------------------
+/* =========================
    Game state
-   ----------------------------- */
+   ========================= */
 let boardState = new Array(24).fill(0); // 0 empty, 1 p1, 2 p2
 let currentPlayer = 1;
 let gamePhase = 'placing'; // 'placing','moving','removing','ask_give'
@@ -230,29 +387,25 @@ let selectedPiece = null;
 let formedDali = null;
 let giveRequester = null;
 let giveGiver = null;
+let lastMoveId = null; // for last-move indicator
 
 // AI settings
 let humanPlays = {1:true, 2:true}; // default both humans
 let aiPlaysAs = null; // if ai plays as player 2 then aiPlaysAs=2
 
-/* -----------------------------
-   Sound (Web Audio API small beeps)
-   ----------------------------- */
+/* =========================
+   Sound (Web Audio API)
+   ========================= */
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 function beep(freq=440, duration=0.12, type='sine', gain=0.06){
   const o = audioCtx.createOscillator();
   const g = audioCtx.createGain();
-  o.type = type;
-  o.frequency.value = freq;
+  o.type = type; o.frequency.value = freq;
   g.gain.value = gain;
   o.connect(g); g.connect(audioCtx.destination);
-  o.start();
-  o.stop(audioCtx.currentTime + duration);
+  o.start(); o.stop(audioCtx.currentTime + duration);
 }
-
-/* shortcuts to sound types */
 function playSound(name){
-  // ensure resume for browsers that block autoplay
   if (audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
   if (name==='place'){ beep(780,0.12,'sine',0.07); }
   else if (name==='select'){ beep(520,0.08,'triangle',0.04); }
@@ -261,9 +414,9 @@ function playSound(name){
   else if (name==='win'){ beep(1200,0.16,'sine',0.12); beep(1500,0.18,'sine',0.14); }
 }
 
-/* -----------------------------
-   Utility functions
-   ----------------------------- */
+/* =========================
+   Helper functions
+   ========================= */
 function isAdjacent(a,b){ return boardMap[a].includes(b); }
 
 function isPieceInDali(pointId, player){
@@ -282,7 +435,6 @@ function checkAllPiecesInDalis(opponent){
   return true;
 }
 
-/* detect dalis after a move or placement; highlight */
 function checkDali(pointId){
   removeDaliHighlight();
   for (const d of dalis.filter(l => l.includes(pointId))){
@@ -306,34 +458,63 @@ function removeDaliHighlight(){
   formedDali = null;
 }
 
-/* place piece visually with pop */
+/* compute contrasting coin border based on board background */
+function computeContrastColor(hex) {
+  // hex like #rrggbb
+  if (!hex) return 'rgba(0,0,0,0.85)';
+  const h = hex.replace('#','');
+  const r = parseInt(h.substring(0,2),16);
+  const g = parseInt(h.substring(2,4),16);
+  const b = parseInt(h.substring(4,6),16);
+  // luminance
+  const L = (0.299*r + 0.587*g + 0.114*b)/255;
+  // if background is light -> use dark border, else white-ish border
+  return L > 0.6 ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.92)';
+}
+
+/* place piece visually with pop and last-move pulse */
 function placePiece(id){
   boardState[id] = currentPlayer;
   piecesToPlace--;
   const pt = points[id];
   pt.classList.add(currentPlayer===1?'p1':'p2');
-  pt.classList.remove('selected');
+  pt.classList.remove('selected','dali-formed');
+  // set solid border for visibility
+  pt.style.borderColor = getComputedStyle(document.documentElement).getPropertyValue('--coin-border').trim();
   // pop animation
   pt.classList.remove('pop');
   void pt.offsetWidth;
   pt.classList.add('pop');
   playSound('place');
+
+  // mark last move: remove previous last-move marker if present
+  if (lastMoveId !== null && points[lastMoveId]) points[lastMoveId].classList.remove('last-move');
+  lastMoveId = id;
+  // apply pulse class to this point; it will animate once (CSS forwards)
+  pt.classList.remove('last-move');
+  void pt.offsetWidth;
+  pt.classList.add('last-move');
+  // remove the class after animation to keep DOM clean
+  pt.addEventListener('animationend', function _onEnd(ev){
+    if (ev.animationName === 'lastMovePulse') {
+      pt.classList.remove('last-move');
+      pt.removeEventListener('animationend', _onEnd);
+    }
+  });
 }
 
-/* remove piece */
 function removePiece(id){
   const owner = boardState[id];
   boardState[id]=0;
   if (owner===1) player1PieceCount--;
   else if (owner===2) player2PieceCount--;
   const pt = points[id];
-  pt.classList.remove('p1','p2','selected','dali-formed');
+  pt.classList.remove('p1','p2','selected','dali-formed','last-move','pop');
+  pt.style.borderColor = getComputedStyle(document.documentElement).getPropertyValue('--coin-border').trim();
 }
 
-/* switch player */
 function switchPlayer(){ currentPlayer = (currentPlayer===1?2:1); }
 
-/* check blocked (no legal moves) */
 function checkBlocked(){
   const player=currentPlayer;
   const playerPieces = boardState.map((v,i)=>v===player?i:-1).filter(i=>i!==-1);
@@ -346,29 +527,31 @@ function checkBlocked(){
   return true;
 }
 
-/* win check */
 function checkWin(){
   const opponentCount = (currentPlayer===1?player2PieceCount:player1PieceCount);
   if (opponentCount<=2){ endGame(currentPlayer,'elimination'); return true; }
   return false;
 }
 
+/* END GAME: show banner overlay and disable board clicks */
 function endGame(winner, reason){
-  let msg = `Game Over! Player ${winner} wins by `;
-  msg += (reason==='elimination') ? 'reducing the opponent to 2 pieces.' : 'blocking all of the opponent\'s moves.';
-  statusText.textContent = msg;
+  let msg = `Player ${winner} wins!`;
+  if (reason === 'elimination') msg += " (reduced opponent to 2 pieces)";
+  else if (reason === 'blocked') msg += " (opponent blocked)";
+  winnerText.textContent = msg;
+  winnerBanner.style.display = 'block';
+  points.forEach(pt => pt.removeEventListener('click', handlePointClick));
   playSound('win');
-  points.forEach(pt=>pt.removeEventListener('click', handlePointClick));
 }
 
-/* -----------------------------
-   Phase Handlers
-   ----------------------------- */
+/* =========================
+   Phase handlers
+   ========================= */
 function handlePointClick(e){
   if (!e.target) return;
-  if (restartBtn.disabled===true) return;
   const id = parseInt(e.target.dataset.id,10);
 
+  // when in ask_give phase, only the giveGiver may click
   if (gamePhase==='ask_give'){
     if (boardState[id] === giveGiver && giveGiver!==null){
       removePiece(id);
@@ -377,7 +560,6 @@ function handlePointClick(e){
       gamePhase = (piecesToPlace===0)?'moving':'placing';
       switchPlayer();
       updateUI();
-      // If next is AI, schedule AI
       maybeTriggerAI();
       return;
     } else {
@@ -410,17 +592,25 @@ function handlePointClick(e){
         points[selectedPiece].classList.remove('selected'); selectedPiece=null; updateUI(); return;
       }
       if (boardState[id]===0 && isAdjacent(selectedPiece, id)){
-        // move visually: remove classes from old, add to new; use move-animate for smooth transition
         boardState[id] = currentPlayer; boardState[selectedPiece]=0;
         const old = points[selectedPiece];
         old.classList.remove('p1','p2','selected');
         points[id].classList.add(currentPlayer===1?'p1':'p2');
-        // animate by toggling class (CSS handles top/left transitions)
-        points[id].classList.add('move-animate');
-        points[selectedPiece].classList.add('move-animate');
-        // play
         playSound('place');
         selectedPiece=null;
+        // last move update: animate
+        if (lastMoveId !== null && points[lastMoveId]) points[lastMoveId].classList.remove('last-move');
+        lastMoveId = id;
+        points[id].classList.remove('last-move');
+        void points[id].offsetWidth;
+        points[id].classList.add('last-move');
+        points[id].addEventListener('animationend', function _onEnd(ev){
+          if (ev.animationName === 'lastMovePulse') {
+            points[id].classList.remove('last-move');
+            points[id].removeEventListener('animationend', _onEnd);
+          }
+        });
+
         if (checkDali(id)){ gamePhase='removing'; updateUI(); maybeTriggerAI(); return; }
         removeDaliHighlight();
         switchPlayer();
@@ -441,11 +631,9 @@ function handlePointClick(e){
     const allIn = checkAllPiecesInDalis(opponent);
     if (isD && !allIn){ statusText.textContent=`Cannot remove piece in a Dali.`; playSound('error'); return; }
     if (allIn){
-      // ask opponent to give
       giveRequester = currentPlayer; giveGiver = opponent; gamePhase='ask_give';
       statusText.textContent = `All Player ${opponent}'s pieces are in Dalis. Player ${opponent}: You must GIVE one piece (click it).`;
       playSound('error');
-      // if opponent is AI, trigger AI to choose which piece to give
       if (!humanPlays[giveGiver]) setTimeout(()=>aiGivePiece(giveGiver),650);
       return;
     }
@@ -459,14 +647,10 @@ function handlePointClick(e){
   }
 }
 
-/* -----------------------------
-   AI routines
-   ----------------------------- */
-
-/* Utility: find all empty spots */
+/* =========================
+   AI logic (same as earlier)
+   ========================= */
 function emptySpots(){ return boardState.map((v,i)=>v===0?i:-1).filter(i=>i!==-1); }
-
-/* Utility: find opponent immediate Dali opportunity if they place at spot s */
 function wouldCreateDaliIfPlaced(player, spot){
   const orig = boardState[spot];
   boardState[spot] = player;
@@ -477,55 +661,31 @@ function wouldCreateDaliIfPlaced(player, spot){
   boardState[spot] = orig;
   return formed;
 }
-
-/* AI: choose placement (based on difficulty) */
 function aiChoosePlacement(player, difficulty){
   const opponent = player===1?2:1;
   const empties = emptySpots();
   if (empties.length===0) return null;
-  if (difficulty==='easy'){
-    return empties[Math.floor(Math.random()*empties.length)];
-  }
-  // medium or hard: try winning move first
-  for (const s of empties){
-    if (wouldCreateDaliIfPlaced(player,s)) return s;
-  }
-  // block opponent's immediate Dali
-  for (const s of empties){
-    if (wouldCreateDaliIfPlaced(opponent,s)) return s;
-  }
-  // prefer center-ish positions (heuristic)
+  if (difficulty==='easy'){ return empties[Math.floor(Math.random()*empties.length)]; }
+  for (const s of empties) if (wouldCreateDaliIfPlaced(player,s)) return s;
+  for (const s of empties) if (wouldCreateDaliIfPlaced(opponent,s)) return s;
   const prefer = [17,9,14,1,22,6,12,4,20,19,11,3,16,8,10,2,0,5,7,13,15,18,21,23];
   for (const p of prefer) if (empties.includes(p)) return p;
-  // fallback random
   return empties[Math.floor(Math.random()*empties.length)];
 }
-
-/* AI: choose move during moving phase */
 function aiChooseMove(player, difficulty){
   const opponent = player===1?2:1;
-  // collect all possible moves [from,to]
   const moves=[];
-  boardState.forEach((v,i)=>{
-    if (v===player){
-      for (const n of boardMap[i]) if (boardState[n]===0) moves.push([i,n]);
-    }
-  });
+  boardState.forEach((v,i)=>{ if (v===player) for (const n of boardMap[i]) if (boardState[n]===0) moves.push([i,n]); });
   if (moves.length===0) return null;
   if (difficulty==='easy') return moves[Math.floor(Math.random()*moves.length)];
-  // medium/hard: try immediate Dali
   for (const m of moves){
-    const [f,t]=m;
-    boardState[f]=0; boardState[t]=player;
+    const [f,t]=m; boardState[f]=0; boardState[t]=player;
     const made = dalis.some(d=>d.includes(t) && boardState[d[0]]===player && boardState[d[1]]===player && boardState[d[2]]===player);
     boardState[f]=player; boardState[t]=0;
     if (made) return m;
   }
-  // block opponent immediate Dali (if they can move to create)
   for (const m of moves){
-    const [f,t]=m;
-    boardState[f]=0; boardState[t]=player;
-    // simulate opponent moves: if opponent has immediate winning move after this, avoid it
+    const [f,t]=m; boardState[f]=0; boardState[t]=player;
     const oppCanWin = (()=> {
       for (let p=0;p<24;p++){
         if (boardState[p]===0){
@@ -540,30 +700,22 @@ function aiChooseMove(player, difficulty){
     boardState[f]=player; boardState[t]=0;
     if (!oppCanWin) return m;
   }
-  // Hard-level extra: pick moves that reduce opponent legal moves
   if (difficulty==='hard'){
-    let best = null; let bestScore = Infinity;
+    let best=null; let bestScore=Infinity;
     for (const m of moves){
-      const [f,t]=m;
-      boardState[f]=0; boardState[t]=player;
-      // count opponent available moves
-      let oppMoves=0;
-      boardState.forEach((v,i)=>{ if (v===opponent) for (const n of boardMap[i]) if (boardState[n]===0) oppMoves++; });
+      const [f,t]=m; boardState[f]=0; boardState[t]=player;
+      let oppMoves=0; boardState.forEach((v,i)=>{ if (v===opponent) for (const n of boardMap[i]) if (boardState[n]===0) oppMoves++; });
       boardState[f]=player; boardState[t]=0;
       if (oppMoves < bestScore){ bestScore=oppMoves; best=m; }
     }
     if (best) return best;
   }
-  // fallback: random
   return moves[Math.floor(Math.random()*moves.length)];
 }
-
-/* AI: trigger decisions */
 function aiMakePlacement(player){
-  const diff = aiDifficulty.value;
+  const diff = difficultySelect.value;
   const s = aiChoosePlacement(player, diff);
   if (s===null) return;
-  // small delay to look natural
   setTimeout(()=>{
     placePiece(s);
     if (checkDali(s)){ gamePhase='removing'; updateUI(); maybeTriggerAI(); return; }
@@ -573,15 +725,11 @@ function aiMakePlacement(player){
     maybeTriggerAI();
   }, 450 + Math.random()*400);
 }
-
 function aiMakeMove(player){
-  const diff = aiDifficulty.value;
+  const diff = difficultySelect.value;
   const m = aiChooseMove(player, diff);
-  if (!m) { // no move -> blocked
-    checkBlocked(); return;
-  }
+  if (!m) { checkBlocked(); return; }
   const [f,t] = m;
-  // perform move after delay
   setTimeout(()=>{
     boardState[f]=0; boardState[t]=player;
     points[f].classList.remove('p1','p2','selected');
@@ -595,22 +743,16 @@ function aiMakeMove(player){
     maybeTriggerAI();
   }, 420 + Math.random()*380);
 }
-
-/* AI: when asked to GIVE a piece (all in dalis) - AI will surrender a least-important piece */
 function aiGivePiece(aiPlayer){
-  // choose a piece that is not part of multiple dalis or the least strategic
   const ownPieces = boardState.map((v,i)=>v===aiPlayer?i:-1).filter(i=>i!==-1);
   if (ownPieces.length===0) return;
-  // prefer a piece that is in a dali but minimal connections, or else random
-  let candidate = null;
+  let candidate=null;
   for (const id of ownPieces){
-    // count how many dalis include it
     const count = dalis.reduce((acc,d)=> d.includes(id) && d.every(p=>boardState[p]===aiPlayer) ? acc+1 : acc ,0);
     if (count===0){ candidate=id; break; }
   }
   if (candidate===null) candidate = ownPieces[Math.floor(Math.random()*ownPieces.length)];
-  // remove after delay
-  setTimeout(()=> {
+  setTimeout(()=>{
     removePiece(candidate);
     removeDaliHighlight();
     if (checkWin()) return;
@@ -621,39 +763,26 @@ function aiGivePiece(aiPlayer){
   }, 600);
 }
 
-/* Trigger AI if it's AI's turn & game not over */
+/* Trigger AI when needed */
 function maybeTriggerAI(){
-  // identify which player is AI
-  if (modeSelect.value === 'human-computer'){
-    // by convention, human is player 1, AI is player 2. (You may change later)
-    humanPlays = {1:true,2:false};
-    aiPlaysAs = 2;
-  } else {
-    humanPlays = {1:true,2:true};
-    aiPlaysAs = null;
-  }
+  if (modeSelect.value === 'human-computer'){ humanPlays = {1:true,2:false}; aiPlaysAs=2; }
+  else { humanPlays = {1:true,2:true}; aiPlaysAs=null; }
   if (!humanPlays[currentPlayer]){
-    // small pause to make it natural
     if (gamePhase==='placing') aiMakePlacement(currentPlayer);
     else if (gamePhase==='moving') aiMakeMove(currentPlayer);
     else if (gamePhase==='removing'){
-      // AI must choose an opponent piece to remove (respect dali rules)
       const opponent = currentPlayer===1?2:1;
-      // find non-dali opponent piece to remove
       const oppPieces = boardState.map((v,i)=>v===opponent?i:-1).filter(i=>i!==-1);
       const nonDali = oppPieces.filter(id=>!isPieceInDali(id,opponent));
       if (nonDali.length>0){
         setTimeout(()=>{ removePiece(nonDali[Math.floor(Math.random()*nonDali.length)]); removeDaliHighlight(); if (checkWin()) return; gamePhase=(piecesToPlace===0)?'moving':'placing'; switchPlayer(); updateUI(); maybeTriggerAI(); }, 500);
       } else {
-        // all in dalis -> ask to give (opponent is AI? if opponent is human then they must give)
         const allIn = checkAllPiecesInDalis(opponent);
         if (allIn){
-          // ask opponent to give; if opponent is AI, auto-give
           giveRequester = currentPlayer; giveGiver = opponent; gamePhase='ask_give';
           statusText.textContent = `All Player ${opponent}'s pieces are in Dalis. Player ${opponent}: You must GIVE one piece (click it).`;
           if (!humanPlays[giveGiver]) aiGivePiece(giveGiver);
         } else {
-          // otherwise, AI will try to remove an available piece (non dali)
           setTimeout(()=> {
             const candidates = nonDali;
             removePiece(candidates[Math.floor(Math.random()*candidates.length)]);
@@ -664,102 +793,218 @@ function maybeTriggerAI(){
         }
       }
     } else if (gamePhase==='ask_give'){
-      // if AI must give, handled by aiGivePiece above
       if (!humanPlays[giveGiver]) aiGivePiece(giveGiver);
     }
   }
 }
 
-/* -----------------------------
-   UI updates & init
-   ----------------------------- */
+/* =========================
+   UI updates, themes & init
+   ========================= */
 function updateUI(){
   p1CountEl.textContent = player1PieceCount;
   p2CountEl.textContent = player2PieceCount;
 
-  // status message
-  if (gamePhase==='placing'){
-    statusText.textContent = `Player ${currentPlayer}: Place a piece (${piecesToPlace} left).`;
-  } else if (gamePhase==='moving'){
-    statusText.textContent = `Player ${currentPlayer}: Move a piece.`;
-  } else if (gamePhase==='removing'){
-    statusText.textContent = `Dali! Player ${currentPlayer}: Remove one opponent piece.`;
-  } else if (gamePhase==='ask_give'){
-    statusText.textContent = `Player ${giveGiver}: You must give one of your pieces now.`;
-  }
+  // status text
+  if (gamePhase==='placing') statusText.textContent = `Player ${currentPlayer}: Place a piece (${piecesToPlace} left).`;
+  else if (gamePhase==='moving') statusText.textContent = `Player ${currentPlayer}: Move a piece.`;
+  else if (gamePhase==='removing') statusText.textContent = `Dali! Player ${currentPlayer}: Remove one opponent piece.`;
+  else if (gamePhase==='ask_give') statusText.textContent = `Player ${giveGiver}: You must give one of your pieces now.`;
 
-  // colors & shapes
-  document.documentElement.style.setProperty('--board-bg', boardColorInput.value);
+  // compute coin border based on board bg for better contrast
+  // read board background from boardEl style or document variable
+  let boardColor = getComputedStyle(document.documentElement).getPropertyValue('--board-bg').trim();
+  if (!boardColor) boardColor = window.getComputedStyle(boardEl).backgroundColor || '#ffffff';
+  // if boardColor is rgb(...) convert to hex helper; else we expect hex
+  function rgbToHex(rgb){
+    const m = rgb.match(/^rgb\\((\\d+),\\s*(\\d+),\\s*(\\d+)\\)$/);
+    if (!m) return rgb;
+    return '#'+[1,2,3].map(i=>parseInt(m[i]).toString(16).padStart(2,'0')).join('');
+  }
+  if (boardColor.startsWith('rgb')) boardColor = rgbToHex(boardColor);
+  const coinBorder = computeContrastColor(boardColor);
+  document.documentElement.style.setProperty('--coin-border', coinBorder);
+
+  // apply colors & shapes
   document.documentElement.style.setProperty('--p1-color', p1ColorInput.value);
   document.documentElement.style.setProperty('--p2-color', p2ColorInput.value);
 
-  const shape = coinShape.value;
+  const shape = coinShapeEl.value;
   points.forEach(pt=>{
-    pt.classList.remove('circle','square','diamond');
+    pt.classList.remove('circle','square','hex','diamond');
     pt.classList.add(shape);
-    // adjust rotation for diamond
     if (shape==='diamond'){
-      // if selected, keep scale and rotate
       if (pt.classList.contains('selected')) pt.style.transform = 'translate(-50%,-50%) scale(1.18) rotate(45deg)';
       else pt.style.transform = 'translate(-50%,-50%) rotate(45deg)';
     } else {
-      // remove rotation; transform for selected handled by CSS
       pt.style.transform = pt.classList.contains('selected') ? 'translate(-50%,-50%) scale(1.18)' : 'translate(-50%,-50%)';
     }
-    // set colors for existing pieces
     if (pt.classList.contains('p1')) pt.style.backgroundColor = p1ColorInput.value;
     else if (pt.classList.contains('p2')) pt.style.backgroundColor = p2ColorInput.value;
     else pt.style.backgroundColor = 'rgba(255,255,255,0.06)';
+    // ensure border contrast
+    pt.style.borderColor = coinBorder;
   });
 
-  // disable restart while playing? keep enabled always
+  // set board background color
+  const boardBg = getComputedStyle(document.documentElement).getPropertyValue('--board-bg').trim() || '#ffffff';
+  boardEl.style.backgroundColor = boardBg;
 }
 
-/* restart */
-function restartGame(){
-  // clear visuals
-  points.forEach(pt => pt.classList.remove('p1','p2','selected','dali-formed','pop'));
-  // reset state
+/* Clear / New game */
+function resetGameState(){
   boardState = new Array(24).fill(0);
-  currentPlayer=1; gamePhase='placing'; piecesToPlace=22;
-  player1PieceCount=11; player2PieceCount=11; selectedPiece=null; formedDali=null;
-  giveRequester = null; giveGiver=null;
-  // reattach listeners
+  currentPlayer = 1;
+  gamePhase = 'placing';
+  piecesToPlace = 22;
+  player1PieceCount = 11;
+  player2PieceCount = 11;
+  selectedPiece = null;
+  formedDali = null;
+  giveRequester = null;
+  giveGiver = null;
+  lastMoveId = null;
+  // hide banner
+  winnerBanner.style.display = 'none';
+  // reattach click listeners
   points.forEach(pt=>{
     pt.removeEventListener('click', handlePointClick);
     pt.addEventListener('click', handlePointClick);
   });
+  // clear visuals
+  points.forEach(pt => {
+    pt.classList.remove('p1','p2','selected','dali-formed','pop','last-move');
+    pt.style.borderColor = getComputedStyle(document.documentElement).getPropertyValue('--coin-border').trim();
+  });
   updateUI();
 }
+function restartGame(){
+  resetGameState();
+  playSound('select');
+}
 
-/* Wire UI controls */
+/* =========================
+   Theme handlers
+   ========================= */
+boardThemeBtns.forEach(btn=>{
+  btn.addEventListener('click', ()=> {
+    boardThemeBtns.forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const c = btn.dataset.color;
+    document.documentElement.style.setProperty('--board-bg', c);
+    boardEl.style.backgroundColor = c;
+    updateUI();
+  });
+});
+playerThemeBtns.forEach(btn=>{
+  btn.addEventListener('click', ()=> {
+    playerThemeBtns.forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const p1 = btn.dataset.p1;
+    const p2 = btn.dataset.p2;
+    p1ColorInput.value = p1;
+    p2ColorInput.value = p2;
+    document.documentElement.style.setProperty('--p1-color', p1);
+    document.documentElement.style.setProperty('--p2-color', p2);
+    updateUI();
+  });
+});
+p1ColorInput.addEventListener('input', ()=> { document.documentElement.style.setProperty('--p1-color', p1ColorInput.value); updateUI(); });
+p2ColorInput.addEventListener('input', ()=> { document.documentElement.style.setProperty('--p2-color', p2ColorInput.value); updateUI(); });
+coinShapeEl.addEventListener('change', updateUI);
+
+/* =========================
+   Wire up UI & events
+   ========================= */
 points.forEach(pt=>pt.addEventListener('click', handlePointClick));
-restartBtn.addEventListener('click', ()=>{ restartGame(); playSound('select'); });
+newGameBtn.addEventListener('click', restartGame);
+bannerNewGame.addEventListener('click', ()=>{ restartGame(); });
+bannerClose.addEventListener('click', ()=>{ winnerBanner.style.display='none'; });
 
-// inputs change
-boardColorInput.addEventListener('input', updateUI);
-coinShape.addEventListener('change', updateUI);
-p1ColorInput.addEventListener('input', updateUI);
-p2ColorInput.addEventListener('input', updateUI);
-
-// mode select: if human-computer, set human plays accordingly (human is player 1)
-modeSelect.addEventListener('change', ()=>{
-  if (modeSelect.value === 'human-computer'){ humanPlays={1:true,2:false}; aiPlaysAs=2; }
-  else { humanPlays={1:true,2:true}; aiPlaysAs=null; }
-  // immediately trigger AI if it's AI's turn at start
-  maybeTriggerAI();
+optionsToggle.addEventListener('click', ()=>{
+  if (controlsPanel.style.display === 'flex' || controlsPanel.style.display === '') {
+    controlsPanel.style.display = 'none';
+    optionsToggle.textContent = 'Options ▾';
+  } else {
+    controlsPanel.style.display = 'flex';
+    optionsToggle.textContent = 'Options ▴';
+  }
 });
 
-// difficulty change only effects AI on next action; fine
-aiDifficulty.addEventListener('change', ()=>{ /* nothing special */ });
+// Mode and difficulty listeners
+modeSelect.addEventListener('change', ()=>{ if (modeSelect.value === 'human-computer'){ humanPlays={1:true,2:false}; aiPlaysAs=2; } else { humanPlays={1:true,2:true}; aiPlaysAs=null; } maybeTriggerAI(); });
+difficultySelect.addEventListener('change', ()=>{/* nothing extra */});
+
+/* =========================
+   Preview image generator & download (client-side)
+   ========================= */
+downloadPreviewBtn.addEventListener('click', ()=> {
+  // Build a small SVG preview consistent with the current theme
+  const boardBg = getComputedStyle(document.documentElement).getPropertyValue('--board-bg').trim() || '#ffffff';
+  const p1 = p1ColorInput.value;
+  const p2 = p2ColorInput.value;
+  const svg = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630">
+    <defs>
+      <linearGradient id="bg" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0" stop-color="#0b1220"/>
+        <stop offset="1" stop-color="#071026"/>
+      </linearGradient>
+      <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+         <feDropShadow dx="0" dy="18" stdDeviation="30" flood-color="#000" flood-opacity="0.6"/>
+      </filter>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#bg)"/>
+    <g transform="translate(120,60)" filter="url(#shadow)">
+      <rect x="0" y="0" width="960" height="510" rx="8" fill="${boardBg}" stroke="#9fb0c8" stroke-width="4"/>
+      <!-- inner lines -->
+      <rect x="70" y="50" width="820" height="410" rx="0" fill="none" stroke="#9fb0c8" stroke-width="2"/>
+      <rect x="220" y="160" width="520" height="210" rx="0" fill="none" stroke="#9fb0c8" stroke-width="2"/>
+      <!-- sample coins -->
+      <circle cx="120" cy="120" r="16" fill="${p1}" stroke="${computeContrastColor(boardBg)}" stroke-width="3"/>
+      <circle cx="840" cy="390" r="16" fill="${p2}" stroke="${computeContrastColor(boardBg)}" stroke-width="3"/>
+    </g>
+    <text x="120" y="36" font-family="Inter, Arial" font-size="28" fill="#e6eef8">Dali Puzzle — Play online</text>
+  </svg>`;
+  // Convert SVG to PNG using canvas
+  const svgBlob = new Blob([svg], {type: 'image/svg+xml;charset=utf-8'});
+  const url = URL.createObjectURL(svgBlob);
+  const img = new Image();
+  img.onload = function(){
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200; canvas.height = 630;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#071026';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.drawImage(img,0,0);
+    URL.revokeObjectURL(url);
+    // download as png
+    const png = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = png;
+    a.download = 'preview.png';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+  img.onerror = ()=>{ alert('Preview generation failed in this browser.'); };
+  img.src = url;
+});
 
 /* initialize */
 (function init(){
-  restartGame();
+  // initial board bg var and coin border
+  document.documentElement.style.setProperty('--board-bg', '#ffffff');
+  document.documentElement.style.setProperty('--p1-color', p1ColorInput.value);
+  document.documentElement.style.setProperty('--p2-color', p2ColorInput.value);
+  // compute coin border and set it
+  const cb = computeContrastColor('#ffffff');
+  document.documentElement.style.setProperty('--coin-border', cb);
+  boardEl.style.backgroundColor = '#ffffff';
+  resetGameState();
   updateUI();
   statusText.textContent = 'Player 1: Place a piece to start.';
 })();
 </script>
 </body>
 </html>
-
